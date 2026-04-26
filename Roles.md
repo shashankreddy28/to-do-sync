@@ -5,7 +5,7 @@
 **Protocol:** TCP only (per updated requirements)  
 
 **Current Status:**  
-- Member 1 has completed `server.py` using `asyncio`
+- completed `server.py` using `asyncio`
 - Server listens on **port 5055**
 - Supports **multiple concurrent connections**
 
