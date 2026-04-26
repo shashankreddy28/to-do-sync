@@ -4,6 +4,8 @@ This repository contains the backend server for our networking capstone project.
 
 ## Setup
 
+Only first time: Clone repo: `git clone "https://github.com/shashankreddy28/to-do-sync.git"`
+
 Only first time: Create venv: `python3 -m venv venv`
 
 Activate evn: Mac: `source venv/bin/activate` Windows: `venv\Scripts\activate`
