@@ -84,6 +84,3 @@ Commands:
 - `ADD`
 - `VIEW`
 - `DELETE`
-
-#### 4. State Transitions
-Example:
