@@ -3,8 +3,8 @@ import asyncio
 # Global state
 tasks = {}
 task_id_counter = 1 # Acts as our unique primary key generator
-# Add this near your tasks and task_id_counter
-active_clients = set()
+active_clients = set() # Tracks connected clients for broadcasting
+
 def parse_command(message, peername):
     global task_id_counter
     
@@ -17,17 +17,19 @@ def parse_command(message, peername):
         task_id = task_id_counter
         tasks[task_id] = {"text": text, "owner": peername}
         task_id_counter += 1
-        response = f"OK Task added ID={task_id}\n"
-        broadcast_msg = f"UPDATE: {peername} added task: {text}\n"
+        
+        # Spec: OK <id>\r\n
+        response = f"OK {task_id}\r\n"
+        broadcast_msg = f"UPDATE: {peername} added task: {text}\r\n"
         return (response, broadcast_msg)
 
     elif command == "VIEW":
         if not tasks:
-            response = "LIST EMPTY\n"
+            response = "LIST \r\n"
         else:
-            response = "LIST\n"
-            for t_id, task in tasks.items():
-                response += f"{t_id}: {task['text']} (from {task['owner']})\n"
+            # Spec: LIST <id>:<task>; <id>:<task>; ...\r\n
+            task_strings = [f"{t_id}:{task['text']}" for t_id, task in tasks.items()]
+            response = f"LIST {'; '.join(task_strings)}\r\n"
         return (response, None)
 
     elif command == "DELETE" and len(parts) > 1:
@@ -35,15 +37,18 @@ def parse_command(message, peername):
             task_id = int(parts[1])
             if task_id in tasks:
                 del tasks[task_id]
-                response = f"OK Task {task_id} deleted\n"
-                broadcast_msg = f"UPDATE: {peername} deleted task ID {task_id}\n"
+                # Spec: OK\r\n
+                response = "OK\r\n"
+                broadcast_msg = f"UPDATE: {peername} deleted task ID {task_id}\r\n"
                 return (response, broadcast_msg)
             else:
-                return ("ERROR Task ID not found\n", None)
+                # Spec: ERROR Task ID not found\r\n
+                return ("ERROR Task ID not found\r\n", None)
         except ValueError:
-            return ("ERROR Invalid ID format\n", None)
+            return ("ERROR Invalid command\r\n", None)
             
-    return ("ERROR Invalid command\n", None)
+    # Spec: ERROR Invalid command\r\n
+    return ("ERROR Invalid command\r\n", None)
 
 async def handle_client(reader, writer):
     peername = writer.get_extra_info('peername')
@@ -53,24 +58,19 @@ async def handle_client(reader, writer):
     
     try:
         while True:
-            # Yield control back to the event loop while waiting for data
             data = await reader.read(1024)
             
-            # If data is empty, the client cleanly disconnected
             if not data:
                 break
                 
             message = data.decode()
             print(f"[{peername}] Received: {message.strip()}")
             
-            # Process the command
             response, broadcast_msg = parse_command(message, str(peername))
             
-            # Send the response back
             writer.write(response.encode())
-            await writer.drain() # Ensure the data is actually pushed out to the network
+            await writer.drain() 
             
-            # Broadcast update to other clients if there's a message
             if broadcast_msg:
                 await broadcast(broadcast_msg, exclude_writer=writer)
             
@@ -97,19 +97,19 @@ async def broadcast(message, exclude_writer=None):
                 print(f"[ERROR] Broadcast failed to a client: {e}")
 
 async def main():
-    try:
-        # 0.0.0.0 binds to all available interfaces (localhost + your lab IP)
-        server = await asyncio.start_server(handle_client, '0.0.0.0', 5055)
+    # 0.0.0.0 binds to all available interfaces
+    server = await asyncio.start_server(handle_client, '0.0.0.0', 5055)
 
-        addr = server.sockets[0].getsockname()
-        print(f"Server serving on {addr}")
+    addr = server.sockets[0].getsockname()
+    print(f"Server serving on {addr}")
 
-        # Keep the server running indefinitely
-        async with server:
-            await server.serve_forever()
-    except KeyboardInterrupt:
-        print("\n[SERVER] Shutdown signal received. Closing gracefully...")
+    async with server:
+        await server.serve_forever()
 
 if __name__ == "__main__":
-    # Standard Python entry point for asyncio programs
-    asyncio.run(main())
+    # Move the try/except block here. asyncio.run() manages the event loop,
+    # so the KeyboardInterrupt gets thrown at this level, not inside main().
+    try:
+        asyncio.run(main())
+    except KeyboardInterrupt:
+        print("\n[SERVER] Shutdown signal received. Closing gracefully...")
