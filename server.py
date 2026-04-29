@@ -1,9 +1,13 @@
 import asyncio
+from logging_setup import setup_logging
 
 # Global state
 tasks = {}
 task_id_counter = 1 # Acts as our unique primary key generator
 active_clients = set() # Tracks connected clients for broadcasting
+
+# Initialize logger
+logger = setup_logging('server')
 
 def parse_command(message, peername):
     global task_id_counter
@@ -53,8 +57,11 @@ def parse_command(message, peername):
 async def handle_client(reader, writer):
     peername = writer.get_extra_info('peername')
     print(f"[NEW CONNECTION] {peername}")
+    logger.info(f"New client connected: {peername}")
     
     active_clients.add(writer)  # Register the client
+    logger.info(f"Client {peername} added to active clients.")
+    logger.info(f"Active clients count: {len(active_clients)}")
     
     try:
         while True:
@@ -65,8 +72,10 @@ async def handle_client(reader, writer):
                 
             message = data.decode()
             print(f"[{peername}] Received: {message.strip()}")
+            logger.info(f"Received message from {peername}: {message.strip()}")
             
             response, broadcast_msg = parse_command(message, str(peername))
+            logger.info(f"Sending response to {peername}: {response.strip()}")
             
             writer.write(response.encode())
             await writer.drain() 
@@ -76,8 +85,10 @@ async def handle_client(reader, writer):
             
     except ConnectionResetError:
         print(f"[ERROR] Connection reset by {peername}")
+        logger.error(f"Connection reset by {peername}")
     finally:
         print(f"[DISCONNECT] {peername}")
+        logger.info(f"Client {peername} disconnected.")
         active_clients.discard(writer)  # Unregister on disconnect
         writer.close()
         await writer.wait_closed()
@@ -88,6 +99,7 @@ async def broadcast(message, exclude_writer=None):
         return
         
     encoded_message = message.encode()
+    logger.info(f"Broadcasting message to clients: {message.strip()}")
     for writer in active_clients:
         if writer != exclude_writer:
             try:
@@ -95,6 +107,7 @@ async def broadcast(message, exclude_writer=None):
                 await writer.drain()
             except Exception as e:
                 print(f"[ERROR] Broadcast failed to a client: {e}")
+                logger.error(f"Broadcast failed to a client: {e}")
 
 async def main():
     # 0.0.0.0 binds to all available interfaces
@@ -102,6 +115,7 @@ async def main():
 
     addr = server.sockets[0].getsockname()
     print(f"Server serving on {addr}")
+    logger.info(f"Server started on {addr}")
 
     async with server:
         await server.serve_forever()
@@ -113,3 +127,4 @@ if __name__ == "__main__":
         asyncio.run(main())
     except KeyboardInterrupt:
         print("\n[SERVER] Shutdown signal received. Closing gracefully...")
+        logger.info("Server shutdown initiated by user.")
