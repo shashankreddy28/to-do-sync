@@ -1,0 +1,4 @@
+2026-04-29 13:14:08,238 - client - INFO - Connected to server at 127.0.0.1:5055
+2026-04-29 13:14:08,238 - client - INFO - Ready to receive messages from server.
+2026-04-29 13:14:08,238 - client - INFO - Ready to send commands to server.
+2026-04-29 13:14:12,940 - client - WARNING - Disconnected from server
