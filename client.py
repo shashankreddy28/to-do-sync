@@ -5,6 +5,10 @@ PORT = 5055
 TIMEOUT = 5
 
 
+async def async_input(prompt):
+    return await asyncio.to_thread(input, prompt)
+
+
 async def receive_messages(reader):
     while True:
         try:
@@ -49,10 +53,10 @@ async def send_commands(writer):
         print("3. Delete task")
         print("4. Exit")
 
-        choice = input("Choose an option: ").strip()
+        choice = (await async_input("Choose an option: ")).strip()
 
         if choice == "1":
-            text = input("Enter task: ").strip()
+            text = (await async_input("Enter task: ")).strip()
             if text:
                 command = f"ADD {text}\r\n"
             else:
@@ -63,7 +67,7 @@ async def send_commands(writer):
             command = "VIEW\r\n"
 
         elif choice == "3":
-            task_id = input("Enter task ID: ").strip()
+            task_id = (await async_input("Enter task ID: ")).strip()
             command = f"DELETE {task_id}\r\n"
 
         elif choice == "4":
